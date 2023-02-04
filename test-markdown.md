@@ -1,7 +1,7 @@
 **test markdown**
 
-_on a guthub web page_
+_on a github web page_
 
 # header
 
-how does it compare with a non-github-generated web site?
+the result is negative - the file just downloads, does not render on a github pages web site

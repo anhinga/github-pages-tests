@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spectra Lab — sound analysis &amp; design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#141020;
+    --panel:#1c1730;
+    --panel2:#241d3d;
+    --deep:#0e0b18;
+    --line:#332a52;
+    --ink:#efeaf7;
+    --muted:#9d92bd;
+    --hot:#ffb350;
+    --mid:#ef5f8f;
+    --cool:#8f7bff;
+    --grad:linear-gradient(90deg,#1a0f33,#6d1d78,#c92a6d,#f76d3c,#fcb450,#fbf3c0);
+    --font:'Space Grotesk',system-ui,'Segoe UI',sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.45}
+  button,input,select{font-family:inherit;font-size:inherit;color:inherit}
+  ::selection{background:var(--mid);color:var(--deep)}
+
+  header{display:flex;align-items:baseline;gap:16px;padding:18px 26px 14px;flex-wrap:wrap}
+  .wordmark{font-weight:700;font-size:24px;letter-spacing:.06em}
+  .wordmark b{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .wordmark span{font-weight:400;color:var(--muted);margin-left:2px}
+  .tagline{color:var(--muted);font-size:14px}
+  .strip{height:3px;background:var(--grad);opacity:.9}
+
+  main{display:grid;grid-template-columns:300px 1fr;gap:18px;padding:18px 26px 40px;max-width:1440px;margin:0 auto}
+  @media (max-width:940px){ main{grid-template-columns:1fr} aside{max-height:none} }
+
+  /* ---------- library ---------- */
+  aside{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;align-self:start;position:sticky;top:14px}
+  @media (max-width:940px){ aside{position:static} }
+  .side-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+  .side-head h2{font-size:15px;font-weight:500;letter-spacing:.03em}
+  aside.dragover{outline:2px dashed var(--cool);outline-offset:-4px}
+  .drop-hint{color:var(--muted);font-size:12.5px;margin:2px 0 10px}
+  #libList{list-style:none;display:flex;flex-direction:column;gap:6px;max-height:62vh;overflow:auto}
+  .snd{display:flex;align-items:center;gap:8px;padding:7px 8px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);cursor:pointer}
+  .snd:hover{border-color:var(--cool)}
+  .snd.sel{border-color:var(--hot);box-shadow:0 0 0 1px var(--hot) inset}
+  .snd .meta{flex:1;min-width:0}
+  .snd .nm{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .snd .sub{font-family:var(--mono);font-size:11px;color:var(--muted)}
+  .icon-btn{background:none;border:1px solid var(--line);border-radius:7px;width:28px;height:28px;flex:none;cursor:pointer;color:var(--ink);display:grid;place-items:center;font-size:12px}
+  .icon-btn:hover{border-color:var(--hot);color:var(--hot)}
+  .icon-btn.playing{background:var(--hot);color:var(--deep);border-color:var(--hot)}
+  .lib-empty{color:var(--muted);font-size:13px;padding:10px 4px}
+
+  /* ---------- workspace ---------- */
+  #work{min-width:0}
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px}
+  .tabs button{background:none;border:none;padding:9px 16px 11px;color:var(--muted);cursor:pointer;font-size:15px;position:relative}
+  .tabs button:hover{color:var(--ink)}
+  .tabs button.active{color:var(--ink)}
+  .tabs button.active::after{content:"";position:absolute;left:10px;right:10px;bottom:-1px;height:3px;background:var(--grad);border-radius:2px}
+  .tab{display:none}
+  .tab.active{display:block}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+  .panel h3{font-size:14px;font-weight:500;letter-spacing:.04em;color:var(--muted);text-transform:uppercase;margin-bottom:10px}
+  .viz-head{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
+  .viz-head h3{margin-bottom:0;flex:1}
+  canvas{display:block;width:100%;background:var(--deep);border-radius:8px}
+
+  .seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+  .seg button{background:none;border:none;padding:4px 10px;font-size:12px;color:var(--muted);cursor:pointer}
+  .seg button.on{background:var(--panel2);color:var(--ink)}
+  .mini{background:none;border:1px solid var(--line);border-radius:7px;padding:4px 10px;font-size:12px;color:var(--muted);cursor:pointer}
+  .mini:hover{color:var(--ink);border-color:var(--cool)}
+  label.chk{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer}
+
+  .legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-top:6px}
+  .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:16px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .stat .val{font-family:var(--mono);font-size:16px;color:var(--hot)}
+  .stat .lab{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+  .sel-head{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .sel-head .name{font-size:19px;font-weight:500}
+  .empty-msg{color:var(--muted);padding:30px 10px;text-align:center}
+
+  /* ---------- controls ---------- */
+  .ctl{display:grid;grid-template-columns:190px 1fr 92px;gap:12px;align-items:center;padding:5px 0}
+  .ctl label{font-size:13.5px;color:var(--muted)}
+  .ctl .val{font-family:var(--mono);font-size:12.5px;color:var(--ink);text-align:right}
+  .ctl select{background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:5px 8px;color:var(--ink)}
+  @media (max-width:640px){ .ctl{grid-template-columns:1fr 1fr;} .ctl input[type=range]{grid-column:1/-1} }
+
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;background:var(--line);cursor:pointer}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:var(--hot);border:2px solid var(--deep)}
+  input[type=range]::-moz-range-thumb{width:13px;height:13px;border-radius:50%;background:var(--hot);border:2px solid var(--deep)}
+  input[type=range]:focus-visible{outline:2px solid var(--cool);outline-offset:4px}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--cool);outline-offset:2px}
+
+  .btn{border:none;border-radius:9px;padding:9px 18px;cursor:pointer;font-size:14.5px;font-weight:500}
+  .btn.primary{background:linear-gradient(90deg,var(--mid),var(--hot));color:var(--deep)}
+  .btn.primary:hover{filter:brightness(1.1)}
+  .btn.ghost{background:none;border:1px solid var(--line);color:var(--ink)}
+  .btn.ghost:hover{border-color:var(--hot);color:var(--hot)}
+  .btn-row{display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap}
+  .note{font-size:12.5px;color:var(--muted)}
+
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer;color:var(--ink)}
+  .chip:hover{border-color:var(--mid);color:var(--mid)}
+
+  details.howto{border:1px solid var(--line);border-radius:12px;padding:12px 16px;background:var(--panel);margin-bottom:16px}
+  details.howto summary{cursor:pointer;color:var(--muted);font-size:13.5px}
+  details.howto ul{margin:10px 0 4px 18px;color:var(--muted);font-size:13.5px;display:flex;flex-direction:column;gap:6px}
+  details.howto em{color:var(--ink);font-style:normal}
+
+  .field{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .field label{font-size:13.5px;color:var(--muted);min-width:120px}
+  .field select{flex:1;max-width:340px;background:var(--panel2);border:1px solid var(--line);border-radius:7px;padding:6px 9px;color:var(--ink)}
+
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+<header>
+  <div class="wordmark"><b>SPECTRA</b><span>lab</span></div>
+  <div class="tagline">See why a sound sounds the way it does — then make new ones.</div>
+</header>
+<div class="strip"></div>
+
+<main>
+  <!-- ================= library ================= -->
+  <aside id="libraryBox">
+    <div class="side-head">
+      <h2>Sound library</h2>
+      <button class="mini" id="importBtn">Import audio</button>
+      <input type="file" id="fileInput" accept="audio/*" multiple hidden>
+    </div>
+    <div class="drop-hint">Drop audio files anywhere on this panel, or generate sounds in Synthesize.</div>
+    <ul id="libList"></ul>
+  </aside>
+
+  <!-- ================= workspace ================= -->
+  <section id="work">
+    <nav class="tabs" role="tablist">
+      <button data-tab="analyze" class="active">Analyze</button>
+      <button data-tab="synth">Synthesize</button>
+      <button data-tab="transform">Transform</button>
+      <button data-tab="mix">Mix</button>
+    </nav>
+
+    <!-- ---------- ANALYZE ---------- -->
+    <div class="tab active" id="tab-analyze">
+      <div id="anaEmpty" class="empty-msg">Select a sound in the library to analyze it.</div>
+      <div id="anaBody" style="display:none">
+        <div class="sel-head">
+          <span class="name" id="selName">—</span>
+          <button class="btn ghost" id="playSelBtn">▶ Play</button>
+          <span class="note" id="anaNote"></span>
+        </div>
+        <div class="stats" id="stats"></div>
+
+        <div class="panel">
+          <div class="viz-head">
+            <h3>Spectrogram</h3>
+            <div class="seg" id="freqScaleSeg">
+              <button data-scale="log" class="on">Log freq</button>
+              <button data-scale="lin">Linear</button>
+            </div>
+            <label class="chk"><input type="checkbox" id="curvesChk" checked> feature curves</label>
+            <button class="mini" data-png="cvSpec">Save PNG</button>
+          </div>
+          <canvas id="cvSpec" style="height:300px"></canvas>
+          <div class="legend">
+            <span><i style="background:var(--hot)"></i>spectral centroid (brightness)</span>
+            <span><i style="background:var(--cool)"></i>85% rolloff (top of the energy)</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="viz-head"><h3>Waveform</h3><button class="mini" data-png="cvWave">Save PNG</button></div>
+          <canvas id="cvWave" style="height:140px"></canvas>
+        </div>
+
+        <div class="panel">
+          <div class="viz-head"><h3>Spectrum — average, with live trace during playback</h3><button class="mini" data-png="cvSpectrum">Save PNG</button></div>
+          <canvas id="cvSpectrum" style="height:220px"></canvas>
+          <div class="legend">
+            <span><i style="background:var(--hot)"></i>average of the whole sound</span>
+            <span><i style="background:var(--mid)"></i>live, while playing</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="viz-head"><h3>Loudness &amp; noisiness over time</h3><button class="mini" data-png="cvFeat">Save PNG</button></div>
+          <canvas id="cvFeat" style="height:150px"></canvas>
+          <div class="legend">
+            <span><i style="background:var(--hot)"></i>loudness (RMS, dB)</span>
+            <span><i style="background:var(--cool)"></i>flatness (0 tonal → 1 noise)</span>
+          </div>
+        </div>
+
+        <details class="howto">
+          <summary>How to read these charts</summary>
+          <ul>
+            <li><em>Spectrogram:</em> time runs left to right, frequency bottom to top, color is energy. Stacked bright lines are partials — evenly spaced (harmonic) sounds pitched; stretched spacing sounds metallic; a smeared wash is noise.</li>
+            <li>The <em>amber curve</em> is the spectral centroid, the energy's centre of mass. Higher ≈ brighter. The <em>violet curve</em> is the 85% rolloff — almost all the energy lives below it.</li>
+            <li><em>Waveform:</em> the attack shape is the punch; the outline is the sound's motion in time.</li>
+            <li><em>Spectrum:</em> each peak is a partial. The left-to-right slope is warmth — steep means dark and warm, flat means bright or noisy. A raised floor between peaks is noise. Play the sound to watch the live spectrum move.</li>
+            <li><em>Flatness:</em> near 0 the sound is tonal, near 1 it is noise. Many drum hits start noisy and become tonal as they ring.</li>
+          </ul>
+        </details>
+      </div>
+    </div>
+
+    <!-- ---------- SYNTHESIZE ---------- -->
+    <div class="tab" id="tab-synth">
+      <div class="panel">
+        <h3>Describe a sound — one tap presets</h3>
+        <div class="chips" id="presetChips"></div>
+        <div class="note">Each preset fills the engine below and renders straight into the library, so you can compare what you hear with what you see.</div>
+      </div>
+      <div class="panel">
+        <h3>Engine</h3>
+        <div class="field"><label for="engineSel">Synthesis engine</label><select id="engineSel"></select></div>
+        <div id="synthParams"></div>
+        <div class="btn-row">
+          <button class="btn primary" id="genBtn">Generate sound</button>
+          <span class="note">Renders offline, adds it to the library and opens the analysis.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- TRANSFORM ---------- -->
+    <div class="tab" id="tab-transform">
+      <div class="panel">
+        <h3>Transform a sound</h3>
+        <div class="field"><label for="srcSel">Source sound</label><select id="srcSel"></select></div>
+        <div class="field"><label for="trSel">Transformation</label><select id="trSel"></select></div>
+        <div id="trParams"></div>
+        <div class="btn-row">
+          <button class="btn primary" id="applyBtn">Apply — make a new sound</button>
+          <span class="note">The original is kept; the result is added as a new library entry.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- MIX ---------- -->
+    <div class="tab" id="tab-mix">
+      <div class="panel">
+        <h3>Combine two sounds</h3>
+        <div class="field"><label for="mixASel">Sound A</label><select id="mixASel"></select></div>
+        <div class="field"><label for="mixBSel">Sound B</label><select id="mixBSel"></select></div>
+        <div class="field"><label for="mixModeSel">Mode</label><select id="mixModeSel">
+          <option value="layer">Layer — add them together</option>
+          <option value="ring">Ring modulate — multiply (metallic sidebands)</option>
+          <option value="append">Append — A then B with a crossfade</option>
+        </select></div>
+        <div id="mixParams"></div>
+        <div class="btn-row">
+          <button class="btn primary" id="mixBtn">Combine — make a new sound</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+'use strict';
+/* ============================================================
+   Spectra Lab — analysis, synthesis and transformation of sound
+   Everything runs locally in the browser. Mono, Float32 inside.
+   ============================================================ */
+
+/* ---------- tiny helpers ---------- */
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const clamp = (v,a,b)=> v<a?a : v>b?b : v;
+const SR = 44100;                       // render rate for synthesized sound
+
+const COL = { hot:'#ffb350', mid:'#ef5f8f', cool:'#8f7bff', ink:'#efeaf7',
+              muted:'#9d92bd', grid:'rgba(157,146,189,0.22)', deep:'#0e0b18' };
+
+function dB(v){ return 20*Math.log10(v+1e-9); }
+function fmtHz(f){ return f>=1000 ? (f/1000).toFixed(2).replace(/\.?0+$/,'')+' kHz' : Math.round(f)+' Hz'; }
+function fmtSec(t){ return t<0.0995 ? Math.round(t*1000)+' ms' : (t<10? t.toFixed(2): t.toFixed(1))+' s'; }
+
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+function noteName(f){
+  if(!(f>0)) return '—';
+  const n = Math.round(12*Math.log2(f/440))+69;
+  const ref = 440*Math.pow(2,(n-69)/12);
+  const cents = Math.round(1200*Math.log2(f/ref));
+  return NOTE_NAMES[((n%12)+12)%12] + (Math.floor(n/12)-1) + (cents? (cents>0?' +':' ')+cents+'¢':'');
+}
+
+/* ---------- FFT (iterative radix-2, in place) ---------- */
+function fft(re, im){
+  const n = re.length;
+  for(let i=1, j=0; i<n; i++){
+    let bit = n>>1;
+    for(; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if(i<j){ let t=re[i]; re[i]=re[j]; re[j]=t; t=im[i]; im[i]=im[j]; im[j]=t; }
+  }
+  for(let len=2; len<=n; len<<=1){
+    const ang = -2*Math.PI/len;
+    const wr = Math.cos(ang), wi = Math.sin(ang);
+    const half = len>>1;
+    for(let i=0; i<n; i+=len){
+      let cwr=1, cwi=0;
+      for(let k=0; k<half; k++){
+        const a = i+k, b = i+k+half;
+        const vr = re[b]*cwr - im[b]*cwi;
+        const vi = re[b]*cwi + im[b]*cwr;
+        re[b] = re[a]-vr; im[b] = im[a]-vi;
+        re[a] += vr;      im[a] += vi;
+        const t = cwr*wr - cwi*wi; cwi = cwr*wi + cwi*wr; cwr = t;
+      }
+    }
+  }
+}
+
+const _hannCache = {};
+function hann(n){
+  if(_hannCache[n]) return _hannCache[n];
+  const w = new Float32Array(n);
+  for(let i=0;i<n;i++) w[i] = 0.5*(1-Math.cos(2*Math.PI*i/(n-1)));
+  return (_hannCache[n]=w);
+}
+
+/* ---------- STFT + per-frame features ---------- */
+function stft(data, sr, fftSize=2048, hop=512){
+  const win  = hann(fftSize);
+  const nF   = Math.max(1, Math.floor((data.length - fftSize)/hop)+1);
+  const bins = fftSize>>1;
+  const frames = new Array(nF), dbFrames = new Array(nF);
+  const rms  = new Float32Array(nF);
+  const re = new Float32Array(fftSize), im = new Float32Array(fftSize);
+  const norm = fftSize/4;                       // full-scale sine → magnitude ≈ 1
+  for(let f=0; f<nF; f++){
+    const off = f*hop; let e = 0;
+    for(let i=0;i<fftSize;i++){
+      const v = data[off+i] || 0;
+      re[i] = v*win[i]; im[i] = 0; e += v*v;
+    }
+    rms[f] = Math.sqrt(e/fftSize);
+    fft(re, im);
+    const m  = new Float32Array(bins);
+    const md = new Float32Array(bins);
+    for(let k=0;k<bins;k++){
+      const v = Math.sqrt(re[k]*re[k]+im[k]*im[k]) / norm;
+      m[k] = v; md[k] = 20*Math.log10(v+1e-9);
+    }
+    frames[f] = m; dbFrames[f] = md;
+  }
+  return { frames, dbFrames, rms, nF, bins, hop, fftSize, sr, binHz: sr/fftSize };
+}
+
+function computeFeatures(S){
+  const {frames, bins, binHz, nF} = S;
+  const centroid = new Float32Array(nF);
+  const rolloff  = new Float32Array(nF);
+  const flatness = new Float32Array(nF);
+  for(let f=0; f<nF; f++){
+    const m = frames[f];
+    let sum=0, wsum=0, esum=0;
+    for(let k=1;k<bins;k++){ const v=m[k]; sum+=v; wsum+=v*k; esum+=v*v; }
+    centroid[f] = sum>1e-8 ? (wsum/sum)*binHz : 0;
+    let acc=0, target=esum*0.85, ro=0;
+    for(let k=1;k<bins;k++){ acc+=m[k]*m[k]; if(acc>=target){ ro=k*binHz; break; } }
+    rolloff[f] = ro;
+    let logsum=0, asum=0, n=0;
+    for(let k=1;k<bins;k++){ const p=m[k]*m[k]+1e-13; logsum+=Math.log(p); asum+=p; n++; }
+    flatness[f] = clamp(Math.exp(logsum/n)/(asum/n), 0, 1);
+  }
+  return {centroid, rolloff, flatness};
+}
+
+function averageSpectrum(S){                    // power-average across frames
+  const avgP = new Float64Array(S.bins);
+  for(const m of S.frames) for(let k=0;k<S.bins;k++) avgP[k]+=m[k]*m[k];
+  const avgDb = new Float32Array(S.bins);
+  for(let k=0;k<S.bins;k++){ avgP[k]/=S.nF; avgDb[k] = 10*Math.log10(avgP[k]+1e-18); }
+  return {avgP, avgDb};
+}
+
+function estimatePitch(avgP, binHz){
+  const lo = Math.max(1, Math.round(28/binHz));
+  const hi = Math.min(avgP.length-2, Math.round(4000/binHz));
+  let bi = lo;
+  for(let k=lo;k<=hi;k++) if(avgP[k]>avgP[bi]) bi=k;
+  const a=Math.log(avgP[bi-1]+1e-18), b=Math.log(avgP[bi]+1e-18), c=Math.log(avgP[bi+1]+1e-18);
+  const den = a-2*b+c;
+  const d = Math.abs(den)>1e-12 ? clamp((a-c)/(2*den), -0.5, 0.5) : 0;
+  return (bi+d)*binHz;
+}
+
+/* ---------- colormap (inferno-like) ---------- */
+const CMAP_STOPS = [
+  [0.00,[ 12,  8, 26]], [0.18,[ 44, 15, 82]], [0.38,[109, 29,120]],
+  [0.58,[201, 42,109]], [0.76,[247,109, 60]], [0.90,[252,180, 80]],
+  [1.00,[251,243,192]]
+];
+const CLUT = new Uint8Array(256*3);
+(function(){
+  for(let i=0;i<256;i++){
+    const t=i/255; let j=0;
+    while(j<CMAP_STOPS.length-2 && t>CMAP_STOPS[j+1][0]) j++;
+    const [t0,c0]=CMAP_STOPS[j], [t1,c1]=CMAP_STOPS[j+1];
+    const u=clamp((t-t0)/(t1-t0),0,1);
+    for(let c=0;c<3;c++) CLUT[i*3+c]=Math.round(c0[c]+(c1[c]-c0[c])*u);
+  }
+})();
+
+/* ============================================================
+   drawing — every chart draws once and keeps a "base" snapshot,
+   so playhead / live overlays can blit + draw cheaply each frame
+   ============================================================ */
+const BASES = {};
+function snapshotBase(cv, key){
+  const b=document.createElement('canvas');
+  b.width=cv.width; b.height=cv.height;
+  b.getContext('2d').drawImage(cv,0,0);
+  BASES[key]=b;
+}
+function restoreBase(cv, key){
+  if(BASES[key]) cv.getContext('2d').drawImage(BASES[key],0,0);
+}
+
+function sizeCanvas(cv){
+  const d = Math.min(2, window.devicePixelRatio||1);
+  const w = cv.clientWidth || 800;
+  const h = parseFloat(cv.style.height) || 200;
+  cv.width = Math.round(w*d); cv.height = Math.round(h*d);
+  return d;
+}
+function niceTimeStep(dur){
+  const target = dur/8;
+  for(const s of [0.02,0.05,0.1,0.2,0.25,0.5,1,2,5,10,15,30,60]) if(s>=target) return s;
+  return 120;
+}
+function drawTimeGrid(g, W, H, dur, d){
+  const step = niceTimeStep(dur);
+  g.strokeStyle = COL.grid; g.lineWidth = 1;
+  g.fillStyle = COL.muted; g.font = (10*d)+'px "IBM Plex Mono",monospace';
+  g.textAlign='left'; g.textBaseline='bottom';
+  for(let t=step; t<dur; t+=step){
+    const x = Math.round(t/dur*W)+0.5;
+    g.beginPath(); g.moveTo(x,0); g.lineTo(x,H); g.stroke();
+    g.fillText(t<1? (t*1000).toFixed(0)+'ms' : t.toFixed(t%1?1:0)+'s', x+3*d, H-3*d);
+  }
+}
+
+/* ---------- waveform ---------- */
+function drawWaveform(cv, data, sr){
+  const d = sizeCanvas(cv), g = cv.getContext('2d');
+  const W=cv.width, H=cv.height, mid=H/2;
+  g.fillStyle=COL.deep; g.fillRect(0,0,W,H);
+  const dur=data.length/sr;
+  drawTimeGrid(g,W,H,dur,d);
+  g.strokeStyle=COL.grid; g.beginPath(); g.moveTo(0,mid+0.5); g.lineTo(W,mid+0.5); g.stroke();
+
+  const spp = data.length/W;
+  g.beginPath();
+  const mins=new Float32Array(W), maxs=new Float32Array(W);
+  for(let x=0;x<W;x++){
+    const s=Math.floor(x*spp), e=Math.max(s+1, Math.floor((x+1)*spp));
+    let mn=1e9, mx=-1e9;
+    for(let i=s;i<e && i<data.length;i++){ const v=data[i]; if(v<mn)mn=v; if(v>mx)mx=v; }
+    if(mn>mx){mn=0;mx=0;}
+    mins[x]=mn; maxs[x]=mx;
+  }
+  g.fillStyle='rgba(143,123,255,0.55)';
+  g.beginPath();
+  for(let x=0;x<W;x++) g.lineTo(x, mid-maxs[x]*mid*0.94);
+  for(let x=W-1;x>=0;x--) g.lineTo(x, mid-mins[x]*mid*0.94);
+  g.closePath(); g.fill();
+  g.strokeStyle=COL.cool; g.lineWidth=1;
+  g.beginPath();
+  for(let x=0;x<W;x++) g.lineTo(x, mid-maxs[x]*mid*0.94);
+  g.stroke();
+  snapshotBase(cv,'wave');
+}
+
+/* ---------- spectrogram ---------- */
+const FMIN_LOG = 30;
+function fToY(f, H, fmax, log){
+  if(log) return H*(1 - Math.log(Math.max(f,FMIN_LOG)/FMIN_LOG)/Math.log(fmax/FMIN_LOG));
+  return H*(1 - f/fmax);
+}
+function drawSpectrogram(cv, S, feats, opts){
+  const d = sizeCanvas(cv), g = cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  const fmax = S.sr/2, log = opts.log;
+  const img = g.createImageData(W,H), px = img.data;
+  const rowK = new Int32Array(H), rowFr = new Float32Array(H);
+  for(let y=0;y<H;y++){
+    const frac = 1 - y/H;
+    const f = log ? FMIN_LOG*Math.pow(fmax/FMIN_LOG, frac) : frac*fmax;
+    const b = f/S.binHz;
+    const k = clamp(Math.floor(b), 0, S.bins-2);
+    rowK[y]=k; rowFr[y]=clamp(b-k,0,1);
+  }
+  for(let x=0;x<W;x++){
+    const fr = S.dbFrames[Math.min(S.nF-1, (x*S.nF/W)|0)];
+    for(let y=0;y<H;y++){
+      const k=rowK[y];
+      const v = fr[k] + (fr[k+1]-fr[k])*rowFr[y];
+      let t = (v+90)/90; t = t<0?0 : t>1?1 : t;
+      const ci = (t*255)|0, o=(y*W+x)<<2;
+      px[o]=CLUT[ci*3]; px[o+1]=CLUT[ci*3+1]; px[o+2]=CLUT[ci*3+2]; px[o+3]=255;
+    }
+  }
+  g.putImageData(img,0,0);
+
+  // frequency grid + labels
+  g.font=(10*d)+'px "IBM Plex Mono",monospace'; g.textBaseline='middle'; g.textAlign='left';
+  for(const f of [50,100,200,500,1000,2000,5000,10000,20000]){
+    if(f>=fmax) continue;
+    if(!log && f<fmax/40) continue;
+    const y=Math.round(fToY(f,H,fmax,log))+0.5;
+    if(y<8*d || y>H-8*d) continue;
+    g.strokeStyle='rgba(239,234,247,0.13)'; g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke();
+    g.fillStyle='rgba(239,234,247,0.6)'; g.fillText(fmtHz(f), 4*d, y-6*d);
+  }
+  const dur = S.nF*S.hop/S.sr;
+  drawTimeGrid(g,W,H,dur,d);
+
+  // feature curves, hidden where the sound is basically silent
+  if(opts.curves && feats){
+    let pk=0; for(const r of S.rms) if(r>pk) pk=r;
+    const gate = pk*0.02;
+    const curve = (arr, color)=>{
+      g.strokeStyle=color; g.lineWidth=1.6*d; g.beginPath();
+      let pen=false;
+      for(let f=0;f<S.nF;f++){
+        if(S.rms[f]<gate || !(arr[f]>0)){ pen=false; continue; }
+        const x=(f+0.5)/S.nF*W, y=fToY(arr[f],H,fmax,log);
+        if(pen) g.lineTo(x,y); else { g.moveTo(x,y); pen=true; }
+      }
+      g.stroke();
+    };
+    curve(feats.centroid, COL.hot);
+    curve(feats.rolloff,  COL.cool);
+  }
+  snapshotBase(cv,'spec');
+}
+
+/* ---------- average spectrum ---------- */
+function xToF(x, W, nyq){ return 20*Math.pow(nyq/20, x/W); }
+function fToX(f, W, nyq){ return W*Math.log(Math.max(f,20)/20)/Math.log(nyq/20); }
+function spectrumPath(g, arr, binHz, W, H, nyq){
+  g.beginPath();
+  for(let x=0;x<W;x++){
+    const f=xToF(x,W,nyq), b=f/binHz;
+    const k=clamp(Math.floor(b),0,arr.length-2), fr=b-k;
+    const v=arr[k]+(arr[k+1]-arr[k])*fr;
+    const y=clamp((0-v)/90,0,1)*H;
+    if(x) g.lineTo(x,y); else g.moveTo(x,y);
+  }
+}
+function drawSpectrum(cv, avgDb, binHz, nyq){
+  const d=sizeCanvas(cv), g=cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  g.fillStyle=COL.deep; g.fillRect(0,0,W,H);
+  g.font=(10*d)+'px "IBM Plex Mono",monospace';
+  // dB grid
+  g.textAlign='right'; g.textBaseline='top';
+  for(let db=-80; db<=0; db+=20){
+    const y=Math.round((0-db)/90*H)+0.5;
+    g.strokeStyle=COL.grid; g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke();
+    g.fillStyle=COL.muted; g.fillText(db+' dB', W-4*d, y+2*d);
+  }
+  // frequency grid
+  g.textAlign='left'; g.textBaseline='bottom';
+  for(const f of [50,100,200,500,1000,2000,5000,10000,20000]){
+    if(f>=nyq) continue;
+    const x=Math.round(fToX(f,W,nyq))+0.5;
+    g.strokeStyle=COL.grid; g.beginPath(); g.moveTo(x,0); g.lineTo(x,H); g.stroke();
+    g.fillStyle=COL.muted; g.fillText(fmtHz(f), x+3*d, H-2*d);
+  }
+  // filled average curve
+  spectrumPath(g, avgDb, binHz, W, H, nyq);
+  const grad=g.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(255,179,80,0.35)'); grad.addColorStop(1,'rgba(255,179,80,0.02)');
+  g.lineTo(W,H); g.lineTo(0,H); g.closePath();
+  g.fillStyle=grad; g.fill();
+  spectrumPath(g, avgDb, binHz, W, H, nyq);
+  g.strokeStyle=COL.hot; g.lineWidth=1.8*d; g.stroke();
+  snapshotBase(cv,'spectrum');
+}
+
+/* ---------- loudness + flatness ---------- */
+function drawFeatureCurves(cv, S, feats){
+  const d=sizeCanvas(cv), g=cv.getContext('2d');
+  const W=cv.width, H=cv.height;
+  g.fillStyle=COL.deep; g.fillRect(0,0,W,H);
+  const dur=S.nF*S.hop/S.sr;
+  drawTimeGrid(g,W,H,dur,d);
+  g.font=(10*d)+'px "IBM Plex Mono",monospace';
+  g.textAlign='left'; g.textBaseline='top';
+  for(let db=-60; db<=0; db+=20){
+    const y=Math.round((0-db)/66*H)+0.5;
+    g.strokeStyle=COL.grid; g.beginPath(); g.moveTo(0,y); g.lineTo(W,y); g.stroke();
+    g.fillStyle=COL.muted; g.fillText(db+'dB', 4*d, y+2*d);
+  }
+  // RMS in dB, filled
+  const y_of_db = v => clamp((0-v)/66,0,1)*H;
+  g.beginPath();
+  for(let f=0; f<S.nF; f++) g.lineTo((f+0.5)/S.nF*W, y_of_db(dB(S.rms[f])));
+  g.lineTo(W,H); g.lineTo(0,H); g.closePath();
+  g.fillStyle='rgba(255,179,80,0.25)'; g.fill();
+  g.beginPath();
+  for(let f=0; f<S.nF; f++) g.lineTo((f+0.5)/S.nF*W, y_of_db(dB(S.rms[f])));
+  g.strokeStyle=COL.hot; g.lineWidth=1.6*d; g.stroke();
+  // flatness 0..1
+  g.beginPath();
+  for(let f=0; f<S.nF; f++) g.lineTo((f+0.5)/S.nF*W, H*(1-feats.flatness[f]*0.92)-2);
+  g.strokeStyle=COL.cool; g.lineWidth=1.6*d; g.stroke();
+  snapshotBase(cv,'feat');
+}
+/* ============================================================
+   synthesis engines — each renders a mono Float32Array at SR
+   ============================================================ */
+function adsrEnv(n, sr, a, dcy, s, r){
+  const env = new Float32Array(n);
+  let A=Math.round(a*sr), D=Math.round(dcy*sr), R=Math.round(r*sr);
+  let sustainLen = n-A-D-R;
+  if(sustainLen<0){ const sc=n/(A+D+R+1); A=Math.floor(A*sc); D=Math.floor(D*sc); R=Math.max(1,n-A-D); sustainLen=0; }
+  let i=0;
+  for(let k=0;k<A;k++,i++) env[i]=k/Math.max(1,A);
+  for(let k=0;k<D && i<n;k++,i++) env[i]=1+(s-1)*(k/Math.max(1,D));
+  for(let k=0;k<sustainLen && i<n;k++,i++) env[i]=s;
+  const from = i>0? env[i-1] : s;
+  const rem = n-i;
+  for(let k=0;k<rem;k++,i++) env[i]=from*(1-k/Math.max(1,rem));
+  return env;
+}
+function normalizePeak(x, target=0.85){
+  let pk=0; for(let i=0;i<x.length;i++){ const a=Math.abs(x[i]); if(a>pk)pk=a; }
+  if(pk>1e-9){ const s=target/pk; for(let i=0;i<x.length;i++) x[i]*=s; }
+  return x;
+}
+function applyEnv(x, env){ for(let i=0;i<x.length;i++) x[i]*=env[i]; return x; }
+
+/* --- additive: an explicit stack of partials --- */
+function renderAdditive(p){
+  const n=Math.round(p.dur*SR), out=new Float32Array(n);
+  const nyq=SR*0.475;
+  for(let h=1; h<=p.partials; h++){
+    if(p.series==='odd' && h%2===0) continue;
+    let f = p.freq*Math.pow(h,p.stretch);
+    f *= Math.pow(2, (p.detune*(Math.random()*2-1))/1200);
+    if(f>=nyq) break;
+    const amp = 1/Math.pow(h,p.tilt);
+    const w = 2*Math.PI*f/SR;
+    let ph = Math.random()*2*Math.PI;
+    const dampMul = Math.exp(-(p.damp*Math.pow(h,p.dampSkew))/SR);
+    let dEnv=1;
+    for(let i=0;i<n;i++){ out[i]+=amp*dEnv*Math.sin(ph); ph+=w; dEnv*=dampMul; }
+  }
+  return normalizePeak(applyEnv(out, adsrEnv(n,SR,p.att,p.dec,p.sus,p.rel)));
+}
+
+/* --- subtractive: band-limited wavetable through a swept filter --- */
+function makeWavetable(wave, f0, duty){
+  const N=4096, t=new Float32Array(N);
+  const nh=Math.max(1, Math.floor(SR*0.45/f0));
+  for(let h=1;h<=nh;h++){
+    let a=0;
+    if(wave==='saw') a=1/h;
+    else if(wave==='square'){ if(h%2) a=1/h; }
+    else if(wave==='triangle'){ if(h%2) a=(h%4===1?1:-1)/(h*h); }
+    else if(wave==='pulse') a=(2/(h*Math.PI))*Math.sin(Math.PI*h*duty);
+    if(!a) continue;
+    const w=2*Math.PI*h/N;
+    for(let i=0;i<N;i++) t[i]+=a*Math.sin(w*i);
+  }
+  return normalizePeak(t, 1);
+}
+function biquadCoef(type, f, Q, sr){
+  const w=2*Math.PI*clamp(f,10,sr*0.49)/sr;
+  const cw=Math.cos(w), sw=Math.sin(w), al=sw/(2*Q);
+  let b0,b1,b2;
+  if(type==='lp'){ b0=(1-cw)/2; b1=1-cw; b2=b0; }
+  else if(type==='hp'){ b0=(1+cw)/2; b1=-(1+cw); b2=b0; }
+  else { b0=al; b1=0; b2=-al; }
+  const a0=1+al, a1=-2*cw, a2=1-al;
+  return [b0/a0,b1/a0,b2/a0,a1/a0,a2/a0];
+}
+function filterSweep(x, sr, type, f1, f2, Q){
+  const y=new Float32Array(x.length);
+  let x1=0,x2=0,y1=0,y2=0, idx=0;
+  const nBlocks=Math.max(1, Math.ceil(x.length/64));
+  for(let b=0;b<nBlocks;b++){
+    const t=nBlocks>1? b/(nBlocks-1) : 0;
+    const f=f1*Math.pow(f2/f1,t);
+    const [b0,b1c,b2,a1,a2]=biquadCoef(type,f,Q,sr);
+    const end=Math.min(x.length, idx+64);
+    for(;idx<end;idx++){
+      const xin=x[idx];
+      const v=b0*xin + b1c*x1 + b2*x2 - a1*y1 - a2*y2;
+      x2=x1; x1=xin; y2=y1; y1=v; y[idx]=v;
+    }
+  }
+  return y;
+}
+function renderSubtractive(p){
+  const n=Math.round(p.dur*SR);
+  const tbl=makeWavetable(p.wave, p.freq, p.pw), N=tbl.length;
+  const out=new Float32Array(n);
+  let ph=0; const inc=p.freq/SR*N;
+  for(let i=0;i<n;i++){
+    const k=ph|0, fr=ph-k;
+    out[i]=tbl[k]+(tbl[(k+1)%N]-tbl[k])*fr;
+    ph+=inc; if(ph>=N) ph-=N;
+  }
+  const filt=filterSweep(out, SR, p.ftype, p.cutFrom, p.cutTo, p.q);
+  return normalizePeak(applyEnv(filt, adsrEnv(n,SR,p.att,p.dec,p.sus,p.rel)));
+}
+
+/* --- FM: a modulator bends a carrier --- */
+function renderFM(p){
+  const n=Math.round(p.dur*SR), out=new Float32Array(n);
+  const wc=2*Math.PI*p.freq/SR, wm=2*Math.PI*p.freq*p.ratio/SR;
+  const iMul=Math.exp(-1/(p.idec*SR));
+  let phc=0, phm=0, I=p.index;
+  for(let i=0;i<n;i++){
+    out[i]=Math.sin(phc + I*Math.sin(phm));
+    phc+=wc; phm+=wm; I*=iMul;
+  }
+  return normalizePeak(applyEnv(out, adsrEnv(n,SR,p.att,p.dec,p.sus,p.rel)));
+}
+
+/* --- noise: shaped air --- */
+function renderNoise(p){
+  const n=Math.round(p.dur*SR), out=new Float32Array(n);
+  if(p.color==='pink'){
+    let b0=0,b1=0,b2=0;
+    for(let i=0;i<n;i++){
+      const w=Math.random()*2-1;
+      b0=0.99765*b0+w*0.0990460;
+      b1=0.96300*b1+w*0.2965164;
+      b2=0.57000*b2+w*1.0526913;
+      out[i]=(b0+b1+b2+w*0.1848)*0.2;
+    }
+  } else {
+    for(let i=0;i<n;i++) out[i]=Math.random()*2-1;
+  }
+  const filt=filterSweep(out, SR, p.ftype, p.cutFrom, p.cutTo, p.q);
+  return normalizePeak(applyEnv(filt, adsrEnv(n,SR,p.att,p.dec,p.sus,p.rel)));
+}
+
+/* ---------- engine + parameter schemas (drive the UI) ---------- */
+const P = (id,label,min,max,def,opts={}) => ({id,label,min,max,def,step:opts.step||0.01,unit:opts.unit||'',log:!!opts.log});
+const SEL = (id,label,options,def) => ({id,label,type:'select',options,def});
+const ADSR_PARAMS = (a,d2,s,r) => [
+  P('att','Attack',0.001,3,a,{log:true,unit:'s'}),
+  P('dec','Decay',0.005,3,d2,{log:true,unit:'s'}),
+  P('sus','Sustain level',0,1,s),
+  P('rel','Release',0.005,4,r,{log:true,unit:'s'}),
+];
+const DUR = d2 => P('dur','Duration',0.1,10,d2,{log:true,unit:'s'});
+
+const ENGINES = [
+  { id:'additive', label:'Additive — a stack of partials',
+    params:[
+      P('freq','Fundamental',30,2000,220,{log:true,unit:'Hz'}),
+      P('partials','Number of partials',1,48,16,{step:1}),
+      SEL('series','Harmonic series',[['all','all harmonics'],['odd','odd only (hollow)']],'all'),
+      P('stretch','Partial stretch (1 = harmonic)',0.7,2,1),
+      P('tilt','High-partial rolloff (higher = darker)',0,3,1,{step:0.05}),
+      P('detune','Random detune',0,50,3,{step:1,unit:'¢'}),
+      P('damp','Partial damping',0,15,0,{step:0.1,unit:'/s'}),
+      P('dampSkew','Damping skew (highs die first)',0,1.5,0.5,{step:0.05}),
+      ...ADSR_PARAMS(0.01,0.15,0.7,0.3), DUR(2)
+    ], render:renderAdditive },
+  { id:'subtractive', label:'Subtractive — a wave through a filter',
+    params:[
+      SEL('wave','Waveform',[['saw','saw'],['square','square'],['pulse','pulse'],['triangle','triangle']],'saw'),
+      P('freq','Fundamental',30,2000,110,{log:true,unit:'Hz'}),
+      P('pw','Pulse width (pulse only)',0.05,0.5,0.25),
+      SEL('ftype','Filter type',[['lp','low-pass'],['hp','high-pass'],['bp','band-pass']],'lp'),
+      P('cutFrom','Cutoff start',40,18000,4000,{log:true,unit:'Hz'}),
+      P('cutTo','Cutoff end',40,18000,800,{log:true,unit:'Hz'}),
+      P('q','Resonance (Q)',0.5,14,1,{step:0.1}),
+      ...ADSR_PARAMS(0.005,0.2,0.6,0.25), DUR(1.5)
+    ], render:renderSubtractive },
+  { id:'fm', label:'FM — a modulator bends a carrier',
+    params:[
+      P('freq','Carrier frequency',30,2000,220,{log:true,unit:'Hz'}),
+      P('ratio','Modulator ratio',0.25,12,2,{step:0.01}),
+      P('index','Modulation index (sideband spread)',0,20,6,{step:0.1}),
+      P('idec','Index decay (brightness fades)',0.05,8,0.5,{log:true,unit:'s'}),
+      ...ADSR_PARAMS(0.003,0.3,0.5,0.4), DUR(2)
+    ], render:renderFM },
+  { id:'noise', label:'Noise — shaped air',
+    params:[
+      SEL('color','Noise color',[['white','white'],['pink','pink (darker)']],'white'),
+      SEL('ftype','Filter type',[['lp','low-pass'],['bp','band-pass'],['hp','high-pass']],'lp'),
+      P('cutFrom','Cutoff start',40,18000,300,{log:true,unit:'Hz'}),
+      P('cutTo','Cutoff end',40,18000,12000,{log:true,unit:'Hz'}),
+      P('q','Resonance (Q)',0.5,14,1.5,{step:0.1}),
+      ...ADSR_PARAMS(0.01,0.3,0.8,0.5), DUR(2.5)
+    ], render:renderNoise },
+];
+
+/* ---------- descriptive presets ---------- */
+const PRESETS = [
+  { name:'Sub bass',        engine:'additive',    set:{freq:45,partials:2,tilt:2.5,att:0.02,dec:0.1,sus:0.9,rel:0.3,dur:1.6} },
+  { name:'Warm pad',        engine:'subtractive', set:{wave:'saw',freq:110,ftype:'lp',cutFrom:500,cutTo:1100,q:0.9,att:0.8,dec:0.4,sus:0.8,rel:1.4,dur:4} },
+  { name:'Acid bass',       engine:'subtractive', set:{wave:'saw',freq:65,ftype:'lp',cutFrom:2600,cutTo:130,q:9,att:0.003,dec:0.15,sus:0.4,rel:0.12,dur:0.5} },
+  { name:'Pluck',           engine:'subtractive', set:{wave:'saw',freq:196,ftype:'lp',cutFrom:6000,cutTo:280,q:1.2,att:0.002,dec:0.2,sus:0.15,rel:0.35,dur:0.8} },
+  { name:'Hollow lead',     engine:'additive',    set:{freq:220,partials:24,series:'odd',stretch:1,tilt:1,detune:4,damp:0,att:0.01,dec:0.1,sus:0.8,rel:0.3,dur:1.6} },
+  { name:'Glass bell',      engine:'fm',          set:{freq:440,ratio:3.53,index:7,idec:0.4,att:0.003,dec:0.6,sus:0,rel:1.4,dur:2.6} },
+  { name:'Metallic hit',    engine:'additive',    set:{freq:180,partials:26,stretch:1.35,tilt:0.6,detune:6,damp:6,dampSkew:0.6,att:0.002,dec:0.3,sus:0.4,rel:0.8,dur:2.2} },
+  { name:'Airy riser',      engine:'noise',       set:{color:'white',ftype:'lp',cutFrom:250,cutTo:14000,q:1.8,att:2.4,dec:0.2,sus:1,rel:0.4,dur:3} },
+  { name:'Dark sweep down', engine:'noise',       set:{color:'pink',ftype:'lp',cutFrom:9000,cutTo:150,q:2.5,att:0.05,dec:0.3,sus:0.9,rel:0.6,dur:2.2} },
+  { name:'Digital clang',   engine:'fm',          set:{freq:160,ratio:1.99,index:14,idec:0.15,att:0.001,dec:0.25,sus:0.1,rel:0.5,dur:1} },
+];
+
+/* ============================================================
+   transformations — Float32Array in, Float32Array out
+   ============================================================ */
+function trResample(x, ratio){
+  const outLen=Math.max(1, Math.round(x.length/ratio));
+  const y=new Float32Array(outLen);
+  for(let i=0;i<outLen;i++){
+    const s=i*ratio, k=s|0, fr=s-k;
+    y[i]=(x[k]||0)*(1-fr)+(x[k+1]||0)*fr;
+  }
+  return y;
+}
+function trStretch(x, sr, factor){
+  const grain=Math.round(0.09*sr), hopOut=grain>>1;
+  const outLen=Math.max(grain, Math.round(x.length*factor));
+  const y=new Float32Array(outLen), norm=new Float32Array(outLen);
+  const win=hann(grain);
+  for(let pos=0; pos<outLen; pos+=hopOut){
+    const src=Math.round(pos/factor);
+    for(let i=0;i<grain;i++){
+      const oi=pos+i; if(oi>=outLen) break;
+      const si=src+i;
+      y[oi]+=(si<x.length? x[si]:0)*win[i];
+      norm[oi]+=win[i];
+    }
+  }
+  for(let i=0;i<outLen;i++) y[i]/= (norm[i]>1e-6? norm[i]:1);
+  return y;
+}
+function trEcho(x, sr, time, fb, mix){
+  const dl=Math.max(1, Math.round(time*sr));
+  const reps=fb>0.01? Math.min(12, Math.ceil(Math.log(0.001)/Math.log(fb))) : 1;
+  const n=x.length + dl*reps;
+  const w=new Float32Array(n), y=new Float32Array(n);
+  for(let i=0;i<n;i++){
+    const xin=i<x.length? x[i]:0;
+    const del=i>=dl? w[i-dl]:0;
+    w[i]=xin+del*fb;
+    y[i]=xin*(1-mix)+del*mix*(1+fb);
+  }
+  return y;
+}
+const TRANSFORMS = [
+  { id:'filter', label:'Filter sweep', params:[
+      SEL('ftype','Filter type',[['lp','low-pass'],['hp','high-pass'],['bp','band-pass']],'lp'),
+      P('from','Cutoff start',40,18000,8000,{log:true,unit:'Hz'}),
+      P('to','Cutoff end',40,18000,300,{log:true,unit:'Hz'}),
+      P('q','Resonance (Q)',0.5,14,1,{step:0.1})],
+    apply:(x,sr,p)=> filterSweep(x,sr,p.ftype,p.from,p.to,p.q) },
+  { id:'pitch', label:'Pitch / speed (resample)', params:[
+      P('semis','Shift',-24,24,-12,{step:1,unit:'st'})],
+    apply:(x,sr,p)=> trResample(x, Math.pow(2,p.semis/12)) },
+  { id:'stretch', label:'Time stretch (keeps pitch, granular)', params:[
+      P('factor','Length factor',0.25,4,2,{log:true,unit:'×'})],
+    apply:(x,sr,p)=> trStretch(x,sr,p.factor) },
+  { id:'reverse', label:'Reverse', params:[],
+    apply:(x)=>{ const y=new Float32Array(x.length); for(let i=0;i<x.length;i++) y[i]=x[x.length-1-i]; return y; } },
+  { id:'drive', label:'Saturation drive (adds harmonics)', params:[
+      P('amount','Drive',1,30,6,{log:true})],
+    apply:(x,sr,p)=>{ const y=new Float32Array(x.length); const k=Math.tanh(p.amount);
+      for(let i=0;i<x.length;i++) y[i]=Math.tanh(x[i]*p.amount)/k; return y; } },
+  { id:'bitcrush', label:'Bitcrush (digital grit)', params:[
+      P('bits','Bit depth',2,16,8,{step:1,unit:'bit'}),
+      P('down','Downsample factor',1,40,6,{step:1,unit:'×'})],
+    apply:(x,sr,p)=>{ const y=new Float32Array(x.length); const steps=Math.pow(2,p.bits-1);
+      let held=0;
+      for(let i=0;i<x.length;i++){ if(i%p.down===0) held=Math.round(x[i]*steps)/steps; y[i]=held; }
+      return y; } },
+  { id:'echo', label:'Echo', params:[
+      P('time','Delay time',0.02,1,0.28,{log:true,unit:'s'}),
+      P('fb','Feedback',0,0.9,0.45),
+      P('mix','Mix',0,1,0.35)],
+    apply:(x,sr,p)=> trEcho(x,sr,p.time,p.fb,p.mix) },
+  { id:'fade', label:'Reshape envelope (fade in / out)', params:[
+      P('fin','Fade in',0,2,0.01,{unit:'s'}),
+      P('fout','Fade out',0,3,0.2,{unit:'s'})],
+    apply:(x,sr,p)=>{ const y=Float32Array.from(x);
+      const a=Math.min(y.length,Math.round(p.fin*sr)), r=Math.min(y.length,Math.round(p.fout*sr));
+      for(let i=0;i<a;i++) y[i]*=i/a;
+      for(let i=0;i<r;i++) y[y.length-1-i]*=i/r;
+      return y; } },
+  { id:'gain', label:'Gain', params:[ P('db','Gain',-24,24,0,{step:0.5,unit:'dB'}) ],
+    apply:(x,sr,p)=>{ const g=Math.pow(10,p.db/20); const y=new Float32Array(x.length);
+      for(let i=0;i<x.length;i++) y[i]=clamp(x[i]*g,-1,1); return y; } },
+  { id:'normalize', label:'Normalize (peak to −1 dB)', params:[],
+    apply:(x)=> normalizePeak(Float32Array.from(x), Math.pow(10,-1/20)) },
+];
+
+/* ---------- combining two sounds ---------- */
+const MIX_PARAM_SETS = {
+  layer:  [ P('gainA','Gain A',-24,6,0,{step:0.5,unit:'dB'}), P('gainB','Gain B',-24,6,0,{step:0.5,unit:'dB'}),
+            P('offset','Start B after',0,5,0,{unit:'s'}) ],
+  ring:   [ P('wet','Ring amount (dry A → full ring)',0,1,1) ],
+  append: [ P('xfade','Crossfade',0,1,0.05,{unit:'s'}) ],
+};
+function mixSounds(a, b, mode, p){
+  // resample b to a's rate if needed
+  let bd = b.data;
+  if(b.sr !== a.sr) bd = trResample(b.data, b.sr/a.sr);
+  const ad = a.data, sr = a.sr;
+  if(mode==='layer'){
+    const off=Math.round(p.offset*sr);
+    const n=Math.max(ad.length, off+bd.length);
+    const y=new Float32Array(n);
+    const gA=Math.pow(10,p.gainA/20), gB=Math.pow(10,p.gainB/20);
+    for(let i=0;i<ad.length;i++) y[i]+=ad[i]*gA;
+    for(let i=0;i<bd.length;i++) y[off+i]+=bd[i]*gB;
+    let pk=0; for(let i=0;i<n;i++){ const v=Math.abs(y[i]); if(v>pk)pk=v; }
+    if(pk>0.98){ const s=0.95/pk; for(let i=0;i<n;i++) y[i]*=s; }
+    return {data:y, sr};
+  }
+  if(mode==='ring'){
+    const n=Math.min(ad.length, bd.length);
+    const y=new Float32Array(n);
+    for(let i=0;i<n;i++) y[i]=ad[i]*(1-p.wet) + (ad[i]*bd[i])*p.wet;
+    return {data:normalizePeak(y,0.9), sr};
+  }
+  // append
+  const xf=Math.min(Math.round(p.xfade*sr), ad.length, bd.length);
+  const n=ad.length + bd.length - xf;
+  const y=new Float32Array(n);
+  for(let i=0;i<ad.length;i++) y[i]=ad[i];
+  for(let i=0;i<bd.length;i++){
+    const oi=ad.length-xf+i;
+    if(i<xf){
+      const t=i/Math.max(1,xf);
+      y[oi]=y[oi]*Math.cos(t*Math.PI/2) + bd[i]*Math.sin(t*Math.PI/2);
+    } else y[oi]=bd[i];
+  }
+  return {data:y, sr};
+}
+
+/* ---------- WAV export ---------- */
+function toWavBlob(data, sr){
+  const n=data.length, buf=new ArrayBuffer(44+n*2), v=new DataView(buf);
+  const ws=(o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  ws(0,'RIFF'); v.setUint32(4,36+n*2,true); ws(8,'WAVE');
+  ws(12,'fmt '); v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  ws(36,'data'); v.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){ const s=clamp(data[i],-1,1); v.setInt16(44+i*2, s<0? s*32768 : s*32767, true); }
+  return new Blob([buf], {type:'audio/wav'});
+}
+function downloadBlob(name, blob){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+}
+/* ============================================================
+   application state + UI
+   ============================================================ */
+let audioCtx = null;
+function ctx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  if(audioCtx.state==='suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+const ITEMS = [];
+let idCounter = 0;
+let selected = null;      // library item shown in Analyze
+let ANA = null;           // {item, S, feats, avgDb, avgP, dur}
+let playing = null;       // {item, src, an, start, dur}
+const VIEW = { log:true, curves:true };
+
+function defaults(params){ const s={}; for(const p of params) s[p.id]=p.def; return s; }
+const SYNTH_STATE = {}; ENGINES.forEach(e=> SYNTH_STATE[e.id]=defaults(e.params));
+const TR_STATE = {};    TRANSFORMS.forEach(t=> TR_STATE[t.id]=defaults(t.params));
+const MIX_STATE = {};   Object.keys(MIX_PARAM_SETS).forEach(m=> MIX_STATE[m]=defaults(MIX_PARAM_SETS[m]));
+
+/* ---------- parameter controls ---------- */
+function fmtParam(v,p){
+  if(p.unit==='Hz') return fmtHz(v);
+  if(p.unit==='s')  return fmtSec(v);
+  if(p.unit==='dB') return (v>0?'+':'')+v.toFixed(1)+' dB';
+  if(p.unit==='¢')  return Math.round(v)+' ¢';
+  if(p.unit==='st') return (v>0?'+':'')+Math.round(v)+' st';
+  const dec=(String(p.step).split('.')[1]||'').length;
+  return v.toFixed(dec)+(p.unit? ' '+p.unit : '');
+}
+function buildControls(container, params, state){
+  container.innerHTML='';
+  for(const p of params){
+    const row=document.createElement('div'); row.className='ctl';
+    const lab=document.createElement('label'); lab.textContent=p.label; row.appendChild(lab);
+    if(p.type==='select'){
+      const sel=document.createElement('select');
+      for(const [val,txt] of p.options){
+        const o=document.createElement('option'); o.value=val; o.textContent=txt; sel.appendChild(o);
+      }
+      sel.value=state[p.id];
+      sel.addEventListener('change',()=>{ state[p.id]=sel.value; });
+      row.appendChild(sel); row.appendChild(document.createElement('span'));
+    } else {
+      const rng=document.createElement('input'); rng.type='range'; rng.min=0; rng.max=1000; rng.step=1;
+      const val=document.createElement('span'); val.className='val';
+      const toT=v=> p.log? Math.log(v/p.min)/Math.log(p.max/p.min) : (v-p.min)/(p.max-p.min);
+      const toV=t=>{
+        let v=p.log? p.min*Math.pow(p.max/p.min,t) : p.min+(p.max-p.min)*t;
+        v=Math.round(v/p.step)*p.step;
+        return clamp(+v.toFixed(6), p.min, p.max);
+      };
+      rng.value=Math.round(clamp(toT(state[p.id]),0,1)*1000);
+      val.textContent=fmtParam(state[p.id],p);
+      rng.addEventListener('input',()=>{
+        const v=toV(rng.value/1000); state[p.id]=v; val.textContent=fmtParam(v,p);
+      });
+      row.appendChild(rng); row.appendChild(val);
+    }
+    container.appendChild(row);
+  }
+}
+
+/* ---------- library ---------- */
+function uniqName(base){
+  let n=base, i=2;
+  while(ITEMS.some(it=>it.name===n)) n=`${base} (${i++})`;
+  return n;
+}
+function renderLibrary(){
+  const ul=$('#libList'); ul.innerHTML='';
+  if(!ITEMS.length){
+    const li=document.createElement('li'); li.className='lib-empty';
+    li.textContent='No sounds yet. Import audio or generate one in Synthesize.';
+    ul.appendChild(li); return;
+  }
+  for(const it of ITEMS){
+    const li=document.createElement('li'); li.className='snd'+(it===selected?' sel':'');
+    const pb=document.createElement('button'); pb.className='icon-btn play-btn'; pb.title='Play / stop';
+    pb.textContent = (playing && playing.item===it)? '■' : '▶';
+    if(playing && playing.item===it) pb.classList.add('playing');
+    pb.addEventListener('click',e=>{ e.stopPropagation(); togglePlay(it); });
+    const meta=document.createElement('div'); meta.className='meta';
+    meta.innerHTML=`<div class="nm"></div><div class="sub">${fmtSec(it.data.length/it.sr)} · ${(it.sr/1000).toFixed(1)}k</div>`;
+    meta.querySelector('.nm').textContent=it.name;
+    const dl=document.createElement('button'); dl.className='icon-btn'; dl.title='Download WAV'; dl.textContent='⤓';
+    dl.addEventListener('click',e=>{ e.stopPropagation();
+      downloadBlob(it.name.replace(/[^\w\- ]+/g,'')+'.wav', toWavBlob(it.data,it.sr)); });
+    const del=document.createElement('button'); del.className='icon-btn'; del.title='Remove'; del.textContent='✕';
+    del.addEventListener('click',e=>{ e.stopPropagation(); removeItem(it); });
+    li.append(pb,meta,dl,del);
+    li.addEventListener('click',()=> selectItem(it));
+    ul.appendChild(li);
+  }
+}
+function refreshSelects(){
+  for(const id of ['srcSel','mixASel','mixBSel']){
+    const sel=$('#'+id), prev=sel.value;
+    sel.innerHTML='';
+    for(const it of ITEMS){
+      const o=document.createElement('option'); o.value=it.id; o.textContent=it.name; sel.appendChild(o);
+    }
+    if(ITEMS.some(it=>String(it.id)===prev)) sel.value=prev;
+    else if(id==='srcSel' && selected) sel.value=selected.id;
+    else if(id==='mixBSel' && ITEMS.length>1) sel.value=ITEMS[1].id;
+  }
+}
+function addItem(name, data, sr, autoplay){
+  const it={ id:++idCounter, name:uniqName(name), data, sr };
+  ITEMS.push(it);
+  selectItem(it);
+  refreshSelects();
+  if(autoplay) playItem(it);
+  return it;
+}
+function removeItem(it){
+  if(playing && playing.item===it) stopPlayback();
+  const i=ITEMS.indexOf(it); if(i>=0) ITEMS.splice(i,1);
+  if(selected===it){ selected=ITEMS[0]||null; ANA=null; if(selected) analyze(); else showAnalysis(); }
+  renderLibrary(); refreshSelects();
+}
+
+/* ---------- analysis ---------- */
+function analyze(){
+  if(!selected){ showAnalysis(); return; }
+  const it=selected;
+  const capped = it.data.length > 60*it.sr;
+  const data = capped? it.data.subarray(0, 60*it.sr) : it.data;
+  const S = stft(data, it.sr);
+  const feats = computeFeatures(S);
+  const {avgP, avgDb} = averageSpectrum(S);
+  ANA = { item:it, S, feats, avgP, avgDb, dur:S.nF*S.hop/S.sr, capped };
+  showAnalysis();
+}
+function showAnalysis(){
+  const has=!!ANA;
+  $('#anaEmpty').style.display = has? 'none':'block';
+  $('#anaBody').style.display  = has? 'block':'none';
+  if(!has) return;
+  $('#selName').textContent = ANA.item.name;
+  $('#anaNote').textContent = ANA.capped? 'long file — first 60 s analyzed':'';
+  drawAll(); renderStats();
+}
+function drawAll(){
+  if(!ANA) return;
+  drawSpectrogram($('#cvSpec'), ANA.S, ANA.feats, VIEW);
+  drawWaveform($('#cvWave'), ANA.item.data, ANA.item.sr);
+  drawSpectrum($('#cvSpectrum'), ANA.avgDb, ANA.S.binHz, ANA.S.sr/2);
+  drawFeatureCurves($('#cvFeat'), ANA.S, ANA.feats);
+  refreshPlayUI();
+}
+function renderStats(){
+  const {S,feats,avgP,item}=ANA;
+  let wsum=0,c=0,fl=0,ro=0,e=0;
+  for(let f=0;f<S.nF;f++){
+    const w=S.rms[f]*S.rms[f]; wsum+=w; e+=w;
+    c+=feats.centroid[f]*w; fl+=feats.flatness[f]*w; ro+=feats.rolloff[f]*w;
+  }
+  const rmsAll=Math.sqrt(e/Math.max(1,S.nF));
+  let pk=0; for(let i=0;i<item.data.length;i++){ const a=Math.abs(item.data[i]); if(a>pk)pk=a; }
+  const pitch=estimatePitch(avgP,S.binHz);
+  const card=(v,l)=>`<div class="stat"><div class="val">${v}</div><div class="lab">${l}</div></div>`;
+  $('#stats').innerHTML =
+    card(fmtSec(item.data.length/item.sr),'duration') +
+    card(dB(pk).toFixed(1)+' dB','peak level') +
+    card(dB(rmsAll).toFixed(1)+' dB','average loudness (RMS)') +
+    card(wsum>0? fmtHz(c/wsum):'—','brightness — mean centroid') +
+    card(wsum>0? fmtHz(ro/wsum):'—','85% rolloff, mean') +
+    card(wsum>0? Math.round(fl/wsum*100)+' %':'—','noisiness — flatness') +
+    card(noteName(pitch),'strongest pitch ≈ '+fmtHz(pitch));
+}
+
+/* ---------- playback + live overlays ---------- */
+function playItem(it){
+  stopPlayback();
+  const c=ctx();
+  const buf=c.createBuffer(1, it.data.length, it.sr);
+  buf.getChannelData(0).set(it.data);
+  const src=c.createBufferSource(); src.buffer=buf;
+  const an=c.createAnalyser(); an.fftSize=2048; an.smoothingTimeConstant=0.72;
+  src.connect(an); an.connect(c.destination);
+  src.start();
+  playing={ item:it, src, an, start:c.currentTime, dur:it.data.length/it.sr };
+  src.onended=()=>{ if(playing && playing.src===src){ playing=null; refreshPlayUI(); restoreAllBases(); } };
+  refreshPlayUI();
+}
+function stopPlayback(){
+  if(playing){ try{ playing.src.onended=null; playing.src.stop(); }catch(e){} playing=null; }
+  refreshPlayUI(); restoreAllBases();
+}
+function togglePlay(it){ (playing && playing.item===it)? stopPlayback() : playItem(it); }
+function refreshPlayUI(){
+  renderLibrary();
+  $('#playSelBtn').textContent = (playing && selected && playing.item===selected)? '■ Stop' : '▶ Play';
+}
+function restoreAllBases(){
+  restoreBase($('#cvWave'),'wave'); restoreBase($('#cvSpec'),'spec');
+  restoreBase($('#cvFeat'),'feat'); restoreBase($('#cvSpectrum'),'spectrum');
+}
+function overlayPlayhead(t){
+  const frac=clamp(t/ANA.dur,0,1);
+  for(const [id,key] of [['cvWave','wave'],['cvSpec','spec'],['cvFeat','feat']]){
+    const cv=$('#'+id); if(!BASES[key]) continue;
+    const g=cv.getContext('2d');
+    g.drawImage(BASES[key],0,0);
+    const x=Math.round(frac*cv.width)+0.5;
+    g.strokeStyle='rgba(251,243,192,0.95)'; g.lineWidth=2;
+    g.beginPath(); g.moveTo(x,0); g.lineTo(x,cv.height); g.stroke();
+  }
+}
+function overlayLiveSpectrum(){
+  const cv=$('#cvSpectrum'); if(!BASES.spectrum) return;
+  const g=cv.getContext('2d');
+  g.drawImage(BASES.spectrum,0,0);
+  const an=playing.an;
+  const arr=new Float32Array(an.frequencyBinCount);
+  an.getFloatFrequencyData(arr);
+  const binHz=audioCtx.sampleRate/an.fftSize, nyq=ANA.S.sr/2;
+  const W=cv.width, H=cv.height;
+  g.beginPath();
+  for(let x=0;x<W;x++){
+    const f=xToF(x,W,nyq), b=f/binHz;
+    const k=clamp(Math.floor(b),0,arr.length-2), fr=b-k;
+    let v=arr[k]+(arr[k+1]-arr[k])*fr;
+    if(!isFinite(v)) v=-90;
+    const y=clamp((0-v)/90,0,1)*H;
+    if(x) g.lineTo(x,y); else g.moveTo(x,y);
+  }
+  g.strokeStyle=COL.mid; g.lineWidth=1.5*Math.min(2,window.devicePixelRatio||1);
+  g.stroke();
+}
+function tick(){
+  if(playing && ANA && playing.item===ANA.item){
+    const t=audioCtx.currentTime-playing.start;
+    if(t>=0){ overlayPlayhead(t); overlayLiveSpectrum(); }
+  }
+  requestAnimationFrame(tick);
+}
+
+/* ---------- import ---------- */
+async function handleFiles(files){
+  const c=ctx();
+  for(const f of files){
+    try{
+      const ab=await f.arrayBuffer();
+      const buf=await c.decodeAudioData(ab);
+      const n=buf.length, mono=new Float32Array(n);
+      for(let ch=0; ch<buf.numberOfChannels; ch++){
+        const d=buf.getChannelData(ch);
+        for(let i=0;i<n;i++) mono[i]+=d[i];
+      }
+      const s=1/buf.numberOfChannels;
+      for(let i=0;i<n;i++) mono[i]*=s;
+      addItem(f.name.replace(/\.[^.]+$/,''), mono, buf.sampleRate, false);
+    }catch(err){
+      alert(`Couldn't decode "${f.name}" — it may not be an audio format this browser supports.`);
+    }
+  }
+}
+
+/* ---------- wiring ---------- */
+function currentEngine(){ return ENGINES.find(e=>e.id===$('#engineSel').value); }
+function currentTransform(){ return TRANSFORMS.find(t=>t.id===$('#trSel').value); }
+function switchTab(name){
+  $$('.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.tab===name));
+  $$('.tab').forEach(t=>t.classList.toggle('active', t.id==='tab-'+name));
+  if(name==='analyze' && ANA) requestAnimationFrame(drawAll);
+}
+function init(){
+  // tabs
+  $$('.tabs button').forEach(b=> b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+
+  // analyze controls
+  $('#playSelBtn').addEventListener('click',()=>{ if(selected) togglePlay(selected); });
+  $$('#freqScaleSeg button').forEach(b=> b.addEventListener('click',()=>{
+    VIEW.log = b.dataset.scale==='log';
+    $$('#freqScaleSeg button').forEach(x=>x.classList.toggle('on',x===b));
+    if(ANA){ drawSpectrogram($('#cvSpec'), ANA.S, ANA.feats, VIEW); }
+  }));
+  $('#curvesChk').addEventListener('change',e=>{
+    VIEW.curves=e.target.checked;
+    if(ANA) drawSpectrogram($('#cvSpec'), ANA.S, ANA.feats, VIEW);
+  });
+  $$('button[data-png]').forEach(b=> b.addEventListener('click',()=>{
+    const cv=$('#'+b.dataset.png);
+    const nm=((selected&&selected.name)||'chart').replace(/[^\w\- ]+/g,'')+' — '+b.dataset.png.slice(2).toLowerCase();
+    cv.toBlob(bl=> downloadBlob(nm+'.png', bl));
+  }));
+
+  // synth
+  const engineSel=$('#engineSel');
+  for(const e of ENGINES){
+    const o=document.createElement('option'); o.value=e.id; o.textContent=e.label; engineSel.appendChild(o);
+  }
+  engineSel.addEventListener('change',()=> buildControls($('#synthParams'), currentEngine().params, SYNTH_STATE[currentEngine().id]));
+  buildControls($('#synthParams'), ENGINES[0].params, SYNTH_STATE[ENGINES[0].id]);
+  $('#genBtn').addEventListener('click',()=>{
+    const eng=currentEngine(), p={...SYNTH_STATE[eng.id]};
+    const data=eng.render(p);
+    addItem(`${eng.id} ${Math.round(p.freq||0)} Hz`, data, SR, true);
+    switchTab('analyze');
+  });
+  const chips=$('#presetChips');
+  for(const pr of PRESETS){
+    const c=document.createElement('button'); c.className='chip'; c.textContent=pr.name;
+    c.addEventListener('click',()=>{
+      const eng=ENGINES.find(e=>e.id===pr.engine);
+      engineSel.value=eng.id;
+      SYNTH_STATE[eng.id]={...defaults(eng.params), ...pr.set};
+      buildControls($('#synthParams'), eng.params, SYNTH_STATE[eng.id]);
+      addItem(pr.name, eng.render({...SYNTH_STATE[eng.id]}), SR, true);
+      switchTab('analyze');
+    });
+    chips.appendChild(c);
+  }
+
+  // transform
+  const trSel=$('#trSel');
+  for(const t of TRANSFORMS){
+    const o=document.createElement('option'); o.value=t.id; o.textContent=t.label; trSel.appendChild(o);
+  }
+  trSel.addEventListener('change',()=> buildControls($('#trParams'), currentTransform().params, TR_STATE[currentTransform().id]));
+  buildControls($('#trParams'), TRANSFORMS[0].params, TR_STATE[TRANSFORMS[0].id]);
+  $('#applyBtn').addEventListener('click',()=>{
+    const src=ITEMS.find(it=>String(it.id)===$('#srcSel').value);
+    if(!src) return;
+    const t=currentTransform(), p={...TR_STATE[t.id]};
+    const y=t.apply(src.data, src.sr, p);
+    addItem(`${src.name} · ${t.id}`, y, src.sr, true);
+    switchTab('analyze');
+  });
+
+  // mix
+  const mixModeSel=$('#mixModeSel');
+  const rebuildMix=()=> buildControls($('#mixParams'), MIX_PARAM_SETS[mixModeSel.value], MIX_STATE[mixModeSel.value]);
+  mixModeSel.addEventListener('change',rebuildMix); rebuildMix();
+  $('#mixBtn').addEventListener('click',()=>{
+    const a=ITEMS.find(it=>String(it.id)===$('#mixASel').value);
+    const b=ITEMS.find(it=>String(it.id)===$('#mixBSel').value);
+    if(!a||!b) return;
+    const mode=mixModeSel.value;
+    const res=mixSounds(a,b,mode,{...MIX_STATE[mode]});
+    const glue = mode==='layer'? ' + ' : mode==='ring'? ' × ' : ' → ';
+    addItem(a.name+glue+b.name, res.data, res.sr, true);
+    switchTab('analyze');
+  });
+
+  // import
+  $('#importBtn').addEventListener('click',()=> $('#fileInput').click());
+  $('#fileInput').addEventListener('change',e=>{ handleFiles(Array.from(e.target.files)); e.target.value=''; });
+  const box=$('#libraryBox');
+  box.addEventListener('dragover',e=>{ e.preventDefault(); box.classList.add('dragover'); });
+  box.addEventListener('dragleave',()=> box.classList.remove('dragover'));
+  box.addEventListener('drop',e=>{
+    e.preventDefault(); box.classList.remove('dragover');
+    handleFiles(Array.from(e.dataTransfer.files));
+  });
+
+  // space bar plays the selected sound
+  window.addEventListener('keydown',e=>{
+    if(e.code==='Space' && e.target===document.body && selected){ e.preventDefault(); togglePlay(selected); }
+  });
+
+  // redraw on resize
+  let rto=null;
+  window.addEventListener('resize',()=>{ clearTimeout(rto); rto=setTimeout(()=>{ if(ANA) drawAll(); },160); });
+
+  // demo sounds so there is something to explore immediately
+  for(const nm of ['Glass bell','Acid bass','Airy riser']){
+    const pr=PRESETS.find(p=>p.name===nm);
+    const eng=ENGINES.find(e=>e.id===pr.engine);
+    addItem('Demo — '+pr.name, eng.render({...defaults(eng.params), ...pr.set}), SR, false);
+  }
+  selectItem(ITEMS[0]);
+
+  requestAnimationFrame(tick);
+}
+function selectItem(it){
+  selected=it;
+  renderLibrary();
+  analyze();
+  refreshSelects();
+}
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
